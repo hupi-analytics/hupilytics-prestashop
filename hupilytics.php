@@ -528,43 +528,6 @@ class Hupilytics extends Module
                 s.parentNode.insertBefore(g,s);
               })();
             </script>';
-        /*
-                // If you have to deal with multiple domains you can use, these :
-                // _paq.push([\'setDomains\', \'www.domain.com\']);  // domain wildcard works too: \'.domain.com\' or \'*.domain.com\'
-                // _paq.push([\'setCookieDomains\', \'www.domain.com\']);  // domain wildcard works too: \'.domain.com\' or \'*.domain.com\'
-                
-                // ! Required ! Our API needs the current timestamp for the page
-                function hupi_current_ts()
-                {
-                    // needed for IE8 compat, see http://bit.ly/1NLevPT
-                    if (!Date.now) {
-                        Date.now = function() {
-                            return new Date().getTime();
-                        }
-                    }
-                    return Math.floor(Date.now() / 1000);
-                }
-                
-                // ! Required ! Our API needs the current timestamp for the page
-                _paq.push([\'setCustomVariable\', 1, \'current_ts\', hupi_current_ts(), \'page\']);
-                
-                // all params for \'setCustomVariable\' are mandatory,
-                // see http://piwik.org/docs/custom-variables/ :
-                // _paq.push([\'setCustomVariable\',
-                //            $id (must be unique for this $scope !),
-                //            $cvar_name,
-                //            $cvar_value,
-                //            $scope (\'page\' or \'visit\': scope of the custom_var)
-                //           ]);
-                // Example:
-                // _paq.push([\'setCustomVariable\', 1, \'_your_cvar\', \'$custom_var\', \'visit\']);
-                
-//                 _paq.push([\'trackPageView\']);
-//                 _paq.push([\'enableLinkTracking\']);
- * 
- * 
- * curl -H "Content-Type: application/json" -H "Accept-Version: v1" -H "X-API-Token: 44e8fbe63be9cd1d4046a9ff4e82240a" -X POST -d '{"client":"scandivie","render_type":"cursor","filters":"{\"id_demande_scandivie\":\"1088\"}"}' http://api.dataretriever.hupi.io/private/scandivie/similarite_Scandivie_id
-                */
     }
     
     
