@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<module>
+	<name>hupilytics</name>
+	<displayName><![CDATA[Hupi Analytics]]></displayName>
+	<version><![CDATA[1.0.0]]></version>
+	<description><![CDATA[This allow to send analytics data within hupi\'s servers]]></description>
+	<author><![CDATA[ohmyweb]]></author>
+	<tab><![CDATA[analytics_stats]]></tab>
+	<is_configurable>1</is_configurable>
+	<need_instance>1</need_instance>
+</module>
