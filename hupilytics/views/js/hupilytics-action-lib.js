@@ -150,11 +150,15 @@ var HupilyticsEnhancedECommerce = {
 
         addProductRecommendationClick: function(Product) {
             console.log('init tracking recommendation');
-            jQuery('.hupirecommend li[data-product]').each(function() {
-                id_product = $(this).data('product');
-                var ClickPoint = jQuery('a[href]');
-                ClickPoint.on("click", function() {
+            jQuery('#hupirecommend > [data-product]').each(function() {
+                jQuery(this).find('a[href]').bind('click', function(e) {
+                    e.preventDefault();
+                    id_product = jQuery(this).closest('[data-product]').data('product');
                     _paq.push(['trackEvent', 'Recommendation', 'Click', id_product]);
+
+                    var hrefProduct = $(this).attr('href');
+                    console.log('Redirection : '+ hrefProduct);
+                    setTimeout(function() { window.location.href = hrefProduct; }, 500);
                 });
             });
         },
