@@ -25,7 +25,7 @@ class Hupilytics extends Module
     {
         $this->name = 'hupilytics';
         $this->tab = 'analytics_stats';
-        $this->version = '1.0.1';
+        $this->version = '1.0.2';
         $this->author = 'Hupi';
         $this->need_instance = 0;
 
@@ -59,6 +59,7 @@ class Hupilytics extends Module
             $this->registerHook('backOfficeHeader') &&
             $this->registerHook('actionCartSave') &&
             $this->registerHook('displayAdminOrderContentOrder') &&
+            $this->registerHook('displayHome') &&
             $this->registerHook('displayFooter') &&
             $this->registerHook('displayFooterProduct') &&
             $this->registerHook('displayHeader') &&
