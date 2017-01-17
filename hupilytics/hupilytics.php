@@ -25,7 +25,7 @@ class Hupilytics extends Module
     {
         $this->name = 'hupilytics';
         $this->tab = 'analytics_stats';
-        $this->version = '1.0.2';
+        $this->version = '1.0.3';
         $this->author = 'Hupi';
         $this->need_instance = 0;
 
@@ -345,21 +345,42 @@ class Hupilytics extends Module
 	}
     
 	/**
-	 * add product impression js and product click js
-	 */
-	public function addProductImpression($products)
-	{
-	    if (!is_array($products))
-	        return;
-	
+     * add product impression js and product click js
+     */
+    public function addProductRecommendationImpression($products)
+    {
+        if (!is_array($products))
+            return;
+    
         $js = '';
-        foreach ($products as $product)
-            $js .= 'Hupi.add('.Tools::jsonEncode($product).",'',true);";
+        $js .= "console.log('setCustomVariable : products_recommendation => ".implode(',', $products)."');";
+        $js .= 'Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 4, 'cvar_name' => 'products_recommendation', 'cvar_value' => $products, 'scope' => 'page')).');';
+        //$js .= 'Hupi.addProductImpression('.Tools::jsonEncode($product).",'',true);";
 
         return $js;
-	}
-	
-	/**
+    }
+    
+    /**
+     * add product impression js and product click js
+     */
+    public function addProductImpression($products)
+    {
+        if (!is_array($products))
+            return;
+    
+        $js = '';
+        $productsIds = array();
+        foreach ($products as $product) {
+            $productsIds[] = $product['id'];
+        }
+        $js .= "console.log('setCustomVariable : products_impression => ".implode(',', $productsIds)."');";
+        $js .= 'Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 3, 'cvar_name' => 'products_impression', 'cvar_value' => $productsIds, 'scope' => 'page')).');';
+        //$js .= 'Hupi.addProductImpression('.Tools::jsonEncode($product).",'',true);";
+
+        return $js;
+    }
+    
+    /**
 	 * add order transaction
 	 */
 	public function addTransaction($products, $order)
@@ -448,19 +469,22 @@ class Hupilytics extends Module
     /**
      * Generate Google Analytics js
      */
-    protected function _runJs($js_code, $backoffice = 0)
+    public function _runJs($js_code, $backoffice = 0)
     {
         if (Configuration::get('HUPI_ACCOUNT_ID'))
         {
-            $runjs_code = '';
+            $runjs_code = '
+                <script type="text/javascript">
+                    var Hupi = HupilyticsEnhancedECommerce;
+                    Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 1, 'cvar_name' => 'current_ts', 'scope' => 'page')).');
+                    Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 2, 'cvar_name' => 'currency', 'cvar_value' => $this->context->currency->iso_code, 'scope' => 'page')).');
+                </script>';
+            
             if (!empty($js_code)) {
                 $runjs_code .= '
-				<script type="text/javascript">
-					var Hupi = HupilyticsEnhancedECommerce;
-					Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 1, 'cvar_name' => 'current_ts', 'scope' => 'page')).');
-					Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 2, 'cvar_name' => 'currency', 'cvar_value' => $this->context->currency->iso_code, 'scope' => 'visit')).');
-					'.$js_code.'
-				</script>';
+                <script type="text/javascript">
+                    '.$js_code.'
+                </script>';
             }
 //				pk_id = null;
 //              _paq.push([ function() { pk_id = this.getVisitorId(); }]);
