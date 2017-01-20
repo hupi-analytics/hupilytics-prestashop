@@ -154,7 +154,8 @@ var HupilyticsEnhancedECommerce = {
                 jQuery(this).find('a[href]').bind('click', function(e) {
                     e.preventDefault();
                     id_product = jQuery(this).closest('[data-product]').data('product');
-                    _paq.push(['trackEvent', 'Recommendation', 'Click', id_product]);
+                    endpoint = jQuery(this).closest('[data-endpoint]').data('endpoint');
+                    _paq.push(['trackEvent', 'Recommandation_HUPI', endpoint, id_product]);
 
                     var hrefProduct = $(this).attr('href');
                     console.log('Redirection : '+ hrefProduct);
