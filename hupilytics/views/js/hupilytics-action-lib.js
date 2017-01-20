@@ -165,7 +165,7 @@ var HupilyticsEnhancedECommerce = {
         },
         
         addProductClickByHttpReferal: function(Product) {
-            this.add(Product, false, true);
+            //this.add(Product, false, true);
 //            ga('ec:setAction', 'click', {
 //                list: Product.list
 //            });
