@@ -21,6 +21,7 @@ class Hupilytics extends Module
     protected static $products = array();
     protected $_debug = 0;
     
+    protected static $impressionProducts = array();
     protected static $recommendedProducts = array();
     
     public function __construct()
@@ -65,7 +66,6 @@ class Hupilytics extends Module
             $this->registerHook('displayAdminOrderContentOrder') &&
             $this->registerHook('displayHome') &&
             $this->registerHook('displayFooter') &&
-            $this->registerHook('displayFooterProduct') &&
             $this->registerHook('displayHeader') &&
             $this->registerHook('displayOrderConfirmation') &&
             $this->registerHook('displayHomeTab') &&
@@ -576,10 +576,11 @@ class Hupilytics extends Module
         $js = '';
         $productsIds = array();
         foreach ($products as $product) {
-            $productsIds[] = $product['id'];
+//             $productsIds[] = $product['id'];
+            self::$impressionProducts[] = $product['id'];
         }
-        $js .= "console.log('setCustomVariable : products_impression => ".implode(',', $productsIds)."');";
-        $js .= 'Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 30, 'cvar_name' => 'products_impression', 'cvar_value' => $productsIds, 'scope' => 'page')).');';
+//         $js .= "console.log('setCustomVariable : products_impression => ".implode(',', $productsIds)."');";
+//         $js .= 'Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 30, 'cvar_name' => 'products_impression', 'cvar_value' => $productsIds, 'scope' => 'page')).');';
         //$js .= 'Hupi.addProductImpression('.Tools::jsonEncode($product).",'',true);";
 
         return $js;
@@ -920,6 +921,9 @@ class Hupilytics extends Module
 			if ($this->eligible == 0)
 				$hupi_scripts .= $this->addProductImpression($products);
 			$hupi_scripts .= $this->addProductClick($products);
+		} elseif(count(self::$impressionProducts)) {
+            $hupi_scripts .= "console.log('setCustomVariable : products_impression => ".implode(',', array_unique(self::$impressionProducts))."');";
+            $hupi_scripts .= 'Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 30, 'cvar_name' => 'products_impression', 'cvar_value' => array_unique(self::$impressionProducts), 'scope' => 'page')).');';
 		}
 		
 		if(Configuration::get('HUPIRECO_ACTIVE') == '1') {
@@ -929,48 +933,6 @@ class Hupilytics extends Module
 		return $this->_runJs($hupi_scripts);
     }
 
-    public function hookDisplayFooterProduct($params)
-    {
-    }
-    
-    /**
-     * hook home to display generate the product list associated to home featured, news products and best sellers Modules
-     */
-    public function hookHome()
-    {
-        $hupi_scripts = '';
-    
-        // Home featured products
-        if ($this->isModuleEnabled('homefeatured'))
-        {
-            $category = new Category($this->context->shop->getCategory(), $this->context->language->id);
-            $home_featured_products = $this->wrapProducts($category->getProducts((int)Context::getContext()->language->id, 1,
-                (Configuration::get('HOME_FEATURED_NBR') ? (int)Configuration::get('HOME_FEATURED_NBR') : 8), 'position'), array(), true);
-            $hupi_scripts .= $this->addProductImpression($home_featured_products).$this->addProductClick($home_featured_products);
-        }
-    
-        // New products
-        if ($this->isModuleEnabled('blocknewproducts') && (Configuration::get('PS_NB_DAYS_NEW_PRODUCT')
-            || Configuration::get('PS_BLOCK_NEWPRODUCTS_DISPLAY')))
-        {
-            $new_products = Product::getNewProducts((int)$this->context->language->id, 0, (int)Configuration::get('NEW_PRODUCTS_NBR'));
-            $new_products_list = $this->wrapProducts($new_products, array(), true);
-            $hupi_scripts .= $this->addProductImpression($new_products_list).$this->addProductClick($new_products_list);
-        }
-    
-        // Best Sellers
-        if ($this->isModuleEnabled('blockbestsellers') && (!Configuration::get('PS_CATALOG_MODE')
-            || Configuration::get('PS_BLOCK_BESTSELLERS_DISPLAY')))
-        {
-            $hupi_homebestsell_product_list = $this->wrapProducts(ProductSale::getBestSalesLight((int)$this->context->language->id, 0, 8), array(), true);
-            $hupi_scripts .= $this->addProductImpression($hupi_homebestsell_product_list).$this->addProductClick($hupi_homebestsell_product_list);
-        }
-    
-        $this->js_state = 1;
-        
-        return $this->_runJs($this->filter($hupi_scripts));
-    }
-    
     public function hookDisplayOrderConfirmation($params)
     {
         $order = $params['objOrder'];
@@ -1076,6 +1038,39 @@ class Hupilytics extends Module
     
     public function hookDisplayHome($params)
     {
+        $hupi_scripts = '';
+        
+        // Home featured products
+        if ($this->isModuleEnabled('homefeatured'))
+        {
+            $category = new Category($this->context->shop->getCategory(), $this->context->language->id);
+            $home_featured_products = $this->wrapProducts($category->getProducts((int)Context::getContext()->language->id, 1,
+                (Configuration::get('HOME_FEATURED_NBR') ? (int)Configuration::get('HOME_FEATURED_NBR') : 8), 'position'), array(), true);
+            $hupi_scripts .= $this->addProductImpression($home_featured_products).$this->addProductClick($home_featured_products);
+        }
+        
+        // New products
+        if ($this->isModuleEnabled('blocknewproducts') && (Configuration::get('PS_NB_DAYS_NEW_PRODUCT')
+            || Configuration::get('PS_BLOCK_NEWPRODUCTS_DISPLAY')))
+        {
+            $new_products = Product::getNewProducts((int)$this->context->language->id, 0, (int)Configuration::get('NEW_PRODUCTS_NBR'));
+            $new_products_list = $this->wrapProducts($new_products, array(), true);
+            $hupi_scripts .= $this->addProductImpression($new_products_list).$this->addProductClick($new_products_list);
+        }
+        
+        // Best Sellers
+        if ($this->isModuleEnabled('blockbestsellers') && (!Configuration::get('PS_CATALOG_MODE')
+            || Configuration::get('PS_BLOCK_BESTSELLERS_DISPLAY')))
+        {
+            $hupi_homebestsell_product_list = $this->wrapProducts(ProductSale::getBestSalesLight((int)$this->context->language->id, 0, 8), array(), true);
+            $hupi_scripts .= $this->addProductImpression($hupi_homebestsell_product_list).$this->addProductClick($hupi_homebestsell_product_list);
+        }
+        
+        $this->js_state = 1;
+        
+        $this->_runJs($this->filter($hupi_scripts));
+        
+        
         if(Configuration::get('HUPIRECO_ACTIVE') != 1 || Configuration::get('HUPIRECO_HP_ACTIVE') != '1' || !Configuration::get('HUPIRECO_HP_ENDPOINT')) {
             return;
         }
