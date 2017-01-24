@@ -886,7 +886,7 @@ class Hupilytics extends Module
 		    // Add product view
 		    $product = new Product(Tools::getValue('id_product'));
 		    $hupi_product = $this->wrapProduct((array)$product, null, 0, true);
-		    $hupi_scripts = 'Hupi.addProductDetailView('.Tools::jsonEncode($hupi_product).');';
+		    $hupi_scripts .= 'Hupi.addProductDetailView('.Tools::jsonEncode($hupi_product).');';
 		
 		    if (isset($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'], $_SERVER['HTTP_HOST']) > 0)
 		        $hupi_scripts .= $this->addProductClickByHttpReferal(array($hupi_product));
