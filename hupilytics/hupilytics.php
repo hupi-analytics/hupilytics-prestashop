@@ -559,7 +559,7 @@ class Hupilytics extends Module
     
         $js = '';
         $js .= "console.log('setCustomVariable : products_recommendation => ".implode(',', $products)."');";
-        $js .= 'Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 40, 'cvar_name' => 'products_recommendation', 'cvar_value' => $products, 'scope' => 'page')).');';
+        $js .= 'Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 40, 'cvar_name' => 'products_recommendation', 'cvar_value' => array_values($products), 'scope' => 'page')).');';
         //$js .= 'Hupi.addProductImpression('.Tools::jsonEncode($product).",'',true);";
 
         return $js;
@@ -923,7 +923,7 @@ class Hupilytics extends Module
 			$hupi_scripts .= $this->addProductClick($products);
 		} elseif(count(self::$impressionProducts)) {
             $hupi_scripts .= "console.log('setCustomVariable : products_impression => ".implode(',', array_unique(self::$impressionProducts))."');";
-            $hupi_scripts .= 'Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 30, 'cvar_name' => 'products_impression', 'cvar_value' => array_unique(self::$impressionProducts), 'scope' => 'page')).');';
+            $hupi_scripts .= 'Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 30, 'cvar_name' => 'products_impression', 'cvar_value' => array_values(array_unique(self::$impressionProducts)), 'scope' => 'page')).');';
 		}
 		
 		if(Configuration::get('HUPIRECO_ACTIVE') == '1') {
