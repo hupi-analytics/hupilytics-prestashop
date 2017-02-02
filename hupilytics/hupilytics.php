@@ -28,7 +28,7 @@ class Hupilytics extends Module
     {
         $this->name = 'hupilytics';
         $this->tab = 'analytics_stats';
-        $this->version = '1.0.4';
+        $this->version = '1.0.5';
         $this->author = 'Hupi';
         $this->need_instance = 0;
 
@@ -918,10 +918,13 @@ class Hupilytics extends Module
 
 		if (isset($products) && count($products) && $controller_name != 'index')
 		{
-			if ($this->eligible == 0)
+			if ($this->eligible == 0) {
 				$hupi_scripts .= $this->addProductImpression($products);
+			}
 			$hupi_scripts .= $this->addProductClick($products);
-		} elseif(count(self::$impressionProducts)) {
+		} 
+		
+		if(count(self::$impressionProducts)) {
             $hupi_scripts .= "console.log('setCustomVariable : products_impression => ".implode(',', array_unique(self::$impressionProducts))."');";
             $hupi_scripts .= 'Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 30, 'cvar_name' => 'products_impression', 'cvar_value' => array_values(array_unique(self::$impressionProducts)), 'scope' => 'page')).');';
 		}
@@ -1017,6 +1020,12 @@ class Hupilytics extends Module
             }
         }
     }
+    
+    public function hookProductFooter($params)
+    {
+        return $this->hookProductTabContent($params);
+    }
+    
     
     public function hookDisplayHomeTab($params)
     {
