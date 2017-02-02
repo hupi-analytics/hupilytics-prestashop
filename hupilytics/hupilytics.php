@@ -28,7 +28,7 @@ class Hupilytics extends Module
     {
         $this->name = 'hupilytics';
         $this->tab = 'analytics_stats';
-        $this->version = '1.0.5';
+        $this->version = '1.0.6';
         $this->author = 'Hupi';
         $this->need_instance = 0;
 
@@ -441,8 +441,8 @@ class Hupilytics extends Module
     {
         if (Configuration::get('HUPI_ACCOUNT_ID'))
         {
-            $this->context->controller->addJS($this->_path.'views/js/hupilytics.js');
-            $this->context->controller->addJS($this->_path.'views/js/hupilytics-action-lib.js');
+            $this->context->controller->addJS($this->_path.'views/js/hupilytics.js?v='.$this->version);
+            $this->context->controller->addJS($this->_path.'views/js/hupilytics-action-lib.js?v='.$this->version);
 
             return $this->_getHupilyticsTag();
         }
@@ -884,7 +884,7 @@ class Hupilytics extends Module
 		if ($controller_name == 'product')
 		{
 		    // Add product view
-		    $product = new Product(Tools::getValue('id_product'));
+		    $product = new Product(Tools::getValue('id_product'), false, Context::getContext()->language->id);
 		    $hupi_product = $this->wrapProduct((array)$product, null, 0, true);
 		    $hupi_scripts .= 'Hupi.addProductDetailView('.Tools::jsonEncode($hupi_product).');';
 		
