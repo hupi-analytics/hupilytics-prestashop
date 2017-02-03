@@ -441,8 +441,8 @@ class Hupilytics extends Module
     {
         if (Configuration::get('HUPI_ACCOUNT_ID'))
         {
-            $this->context->controller->addJS($this->_path.'views/js/hupilytics.js?v='.$this->version);
-            $this->context->controller->addJS($this->_path.'views/js/hupilytics-action-lib.js?v='.$this->version);
+            $this->context->controller->addJS($this->_path.'views/js/hupilytics.js');
+            $this->context->controller->addJS($this->_path.'views/js/hupilytics-action-lib.js');
 
             return $this->_getHupilyticsTag();
         }
