@@ -28,7 +28,7 @@ class Hupilytics extends Module
     {
         $this->name = 'hupilytics';
         $this->tab = 'analytics_stats';
-        $this->version = '1.0.6';
+        $this->version = '1.0.7';
         $this->author = 'Hupi';
         $this->need_instance = 0;
 

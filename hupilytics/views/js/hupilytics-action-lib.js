@@ -151,7 +151,7 @@ var HupilyticsEnhancedECommerce = {
         addProductRecommendationClick: function(Product) {
             console.log('init tracking recommendation');
             jQuery('#hupirecommend > [data-product]').each(function() {
-                jQuery(this).find('a[href]').bind('click', function(e) {
+                jQuery(this).find('a[href]:not(.ajax_add_to_cart_button)').bind('click', function(e) {
                     e.preventDefault();
                     id_product = jQuery(this).closest('[data-product]').data('product');
                     endpoint = jQuery(this).closest('[data-endpoint]').data('endpoint');
