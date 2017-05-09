@@ -371,15 +371,18 @@ class Hupilytics extends Module
         }
     }
     
-    protected function getProducts($endpoint, $nbProducts = 4, $product = null) {
+    protected function getProducts($endpoint, $nbProducts = 4, $extraParams = array()) {
         $id_lang = $this->context->language->id;
     
         if($this->context->cookie->__get('pk_id') && Configuration::get('HUPIRECO_TOKEN')) {
             $arrayPkId = explode('.', $this->context->cookie->__get('pk_id'));
             $visitor_id = array_shift($arrayPkId);
             $filters = array("visitor_id" => $visitor_id);
-            if($product) {
-                $filters['id_demande'] = $product;
+            if(isset($extraParams['id_product'])) {
+                $filters['id_demande'] = $extraParams['id_product'];
+            }
+            if(isset($extraParams['id_category'])) {
+                $filters['id_category'] = $extraParams['id_category'];
             }
             if($products = $this->context->cart->getProducts(true)) {
                 $productList = array();
@@ -390,10 +393,10 @@ class Hupilytics extends Module
                     $filters['basket'] = json_encode($productList);
                 }
             }
-    
+
             $data = array("client" => Configuration::get('HUPI_ACCOUNT_ID'), "render_type" => "cursor", "filters" => json_encode($filters));
             $data_string = json_encode($data);
-    
+
             $ch = curl_init("https://api.dataretriever.hupi.io/private/".Configuration::get('HUPI_ACCOUNT_ID')."/".$endpoint);
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
             curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
@@ -996,7 +999,7 @@ class Hupilytics extends Module
         }
     
         $id_product = Tools::getValue('id_product');
-        if($products = $this->getProducts(Configuration::get('HUPIRECO_PROD_ENDPOINT'), $nbProd, $id_product)) {
+        if($products = $this->getProducts(Configuration::get('HUPIRECO_PROD_ENDPOINT'), $nbProd, array('id_product' => $id_product))) {
             $this->smarty->assign('products', $products);
     
             if (version_compare(_PS_VERSION_, '1.6', '>=') && !(bool)Configuration::get('HUPIRECO_PROD_HASTAB')) {
@@ -1018,7 +1021,7 @@ class Hupilytics extends Module
         }
     
         $id_product = Tools::getValue('id_product');
-        if($products = $this->getProducts(Configuration::get('HUPIRECO_PROD_ENDPOINT'), $nbProd, $id_product)) {
+        if($products = $this->getProducts(Configuration::get('HUPIRECO_PROD_ENDPOINT'), $nbProd, array('id_product' => $id_product))) {
             $this->smarty->assign(array(
                 'products' => $products,
                 'endpoint' => Configuration::get('HUPIRECO_PROD_ENDPOINT')
@@ -1141,7 +1144,7 @@ class Hupilytics extends Module
             $nbProd = null;
         }
     
-        if($products = $this->getProducts(Configuration::get('HUPIRECO_PROD_ENDPOINT'), $nbProd, $id_product)) {
+        if($products = $this->getProducts(Configuration::get('HUPIRECO_PROD_ENDPOINT'), $nbProd, array('id_product' => $id_product))) {
             $this->smarty->assign(array(
                 'products' => $products,
                 'endpoint' => Configuration::get('HUPIRECO_PROD_ENDPOINT')
@@ -1191,7 +1194,9 @@ class Hupilytics extends Module
             $controller = isset($this->context->controller->page_name) ? $this->context->controller->page_name : null;
         }
         
-        if ($id_category = Tools::getValue('id_category') && $controller == 'category') {
+        if (Tools::getValue('id_category') && $controller == 'category') {
+            $id_category = Tools::getValue('id_category');
+            
             if(Configuration::get('HUPIRECO_ACTIVE') != 1 || Configuration::get('HUPIRECO_CATEGORY_ACTIVE') != '1' || !Configuration::get('HUPIRECO_CATEGORY_ENDPOINT')) {
                 return;
             }
@@ -1201,7 +1206,7 @@ class Hupilytics extends Module
                 $nbProd = null;
             }
             
-            if($products = $this->getProducts(Configuration::get('HUPIRECO_CATEGORY_ENDPOINT'), $nbProd)) {
+            if($products = $this->getProducts(Configuration::get('HUPIRECO_CATEGORY_ENDPOINT'), $nbProd, array('id_category' => $id_category))) {
                 $this->context->controller->addCss(_THEME_CSS_DIR_.'product_list.css', 'all');
                 $this->smarty->assign(array(
                     'products' => $products,
