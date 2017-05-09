@@ -87,18 +87,16 @@ var HupilyticsEnhancedECommerce = {
         
         addToCart: function(Product) {
             this.add(Product);
-//            ga('ec:setAction', 'add');
-//            ga('send', 'event', 'UX', 'click', 'Add to Cart'); // Send data using an event.
-            console.log('trackEvent => UX : Add to Cart');
-            _paq.push(['trackEvent', 'Add to Cart', 'UX']);
+
+            console.log('trackEvent => UX : Add to Cart : '+Product.quantity+'x'+Product.id);
+            _paq.push(['trackEvent', 'Add to Cart', Product.id, Product.quantity]);
         },
 
         removeFromCart: function(Product) {
             this.add(Product);
-//            ga('ec:setAction', 'remove');
-//            ga('send', 'event', 'UX', 'click', 'Remove From cart'); // Send data using an event.
-            console.log('trackEvent => UX : Remove From cart');
-            _paq.push(['trackEvent', 'Remove From cart', 'UX']);
+
+            console.log('trackEvent => UX : Remove From cart : '+Product.quantity+'x'+Product.id);
+            _paq.push(['trackEvent', 'Remove From cart', Product.id, Product.quantity]);
         },
 
         addProductImpression: function(Product) {
@@ -151,10 +149,11 @@ var HupilyticsEnhancedECommerce = {
         addProductRecommendationClick: function(Product) {
             console.log('init tracking recommendation');
             jQuery('#hupirecommend > [data-product]').each(function() {
-                jQuery(this).find('a[href]').bind('click', function(e) {
+                jQuery(this).find('a[href]:not(.ajax_add_to_cart_button)').bind('click', function(e) {
                     e.preventDefault();
                     id_product = jQuery(this).closest('[data-product]').data('product');
-                    _paq.push(['trackEvent', 'Recommendation', 'Click', id_product]);
+                    endpoint = jQuery(this).closest('[data-endpoint]').data('endpoint');
+                    _paq.push(['trackEvent', 'Recommandation_HUPI', endpoint, id_product]);
 
                     var hrefProduct = $(this).attr('href');
                     console.log('Redirection : '+ hrefProduct);
@@ -164,7 +163,7 @@ var HupilyticsEnhancedECommerce = {
         },
         
         addProductClickByHttpReferal: function(Product) {
-            this.add(Product, false, true);
+            //this.add(Product, false, true);
 //            ga('ec:setAction', 'click', {
 //                list: Product.list
 //            });

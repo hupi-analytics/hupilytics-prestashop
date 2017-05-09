@@ -21,11 +21,14 @@ class Hupilytics extends Module
     protected static $products = array();
     protected $_debug = 0;
     
+    protected static $impressionProducts = array();
+    protected static $recommendedProducts = array();
+    
     public function __construct()
     {
         $this->name = 'hupilytics';
         $this->tab = 'analytics_stats';
-        $this->version = '1.0.1';
+        $this->version = '1.0.8';
         $this->author = 'Hupi';
         $this->need_instance = 0;
 
@@ -54,15 +57,26 @@ class Hupilytics extends Module
         
         include(dirname(__FILE__).'/sql/install.php');
         
+        $this->updateConfigFile('install');
+        
         return parent::install() &&
             $this->registerHook('header') &&
             $this->registerHook('backOfficeHeader') &&
             $this->registerHook('actionCartSave') &&
             $this->registerHook('displayAdminOrderContentOrder') &&
+            $this->registerHook('displayHome') &&
             $this->registerHook('displayFooter') &&
-            $this->registerHook('displayFooterProduct') &&
             $this->registerHook('displayHeader') &&
-            $this->registerHook('displayOrderConfirmation');
+            $this->registerHook('displayOrderConfirmation') &&
+            $this->registerHook('displayHomeTab') &&
+            $this->registerHook('displayHomeTabContent') &&
+            $this->registerHook('productTab') &&
+            $this->registerHook('productTabContent') &&
+            $this->registerHook('leftColumn') &&
+            $this->registerHook('rightColumn') &&
+            $this->registerHook('displayShoppingCart') &&
+            $this->registerHook('displayHupiRecommendations')
+        ;
     }
 
     public function uninstall()
@@ -73,7 +87,77 @@ class Hupilytics extends Module
         
         include(dirname(__FILE__).'/sql/uninstall.php');
         
+        $this->updateConfigFile('uninstall');
+        
         return parent::uninstall();
+    }
+    
+    
+    private function codeModificationFile()
+    {
+        $modif = '<li{if isset($id) && $id == "hupirecommend"} data-product="{$product.id_product}"{/if} ';
+        return array('../themes/'._THEME_NAME_.'/product-list.tpl' =>
+            array(
+                'before'    => '<li ',
+                'after'     => $modif,
+                'search'    => 'li_combi_'
+            ));
+    }
+    
+    private function updateConfigFile($action = 'install')
+    {
+        foreach ($this->codeModificationFile() as $file => $modification)
+        {
+            if (!file_exists($file)) {
+                return false;
+            }
+             
+            list ($before, $after) = ($action == 'uninstall')? array($modification['after'], $modification['before']) : array($modification['before'], $modification['after']);
+            $chmod = fileperms($file);
+            $content = Tools::file_get_contents($file);
+    
+            if (strstr($content, $modification['search']) && $action == 'install' || !strstr($content, $modification['search']) && $action != 'install') {
+                return true;
+            }
+    
+            $content = str_replace($before, $after, $content);
+            chmod($file, 0777);
+            if (!$fp = fopen ($file, 'w')) {
+                chmod($file, $chmod);
+                fclose ($fp);
+                return false;
+            }
+             
+            fwrite ($fp, $content);
+            fclose ($fp);
+            chmod($file, $chmod);
+        }
+        return true;
+    }
+    private function testModificationsFiles()
+    {
+        $html = '';
+        foreach ($this->codeModificationFile() as $file => $modification)
+        {
+            if (!file_exists($file)) {
+                $html .= $this->displayError($this->l('Impossible to find the file').' : '.$file);
+            } else {
+                if (!$this->fileModified($file, $modification['after'])) {
+                    $html .= $this->displayError(
+                        $this->l('To be able to track the clicks of recommendations thank you to replace').' : <br/><code>'.Tools::htmlentitiesUTF8($modification['before']).'</code>'.$this->l(' by ').'<code>'.Tools::htmlentitiesUTF8($modification['after']).'</code><br/>'.$this->l('in the file').' <strong>'.$file.'</strong>');
+                }
+            }
+        }
+        return $html;
+    }
+    
+    private function fileModified($file, $search = false)
+    {
+        $search = (!$search)? MD5($this->name) : $search;
+        if ($page_res = Tools::file_get_contents($file)) {
+            return mb_strpos($page_res, $search);
+        }
+        return false;
     }
 
     /**
@@ -81,30 +165,100 @@ class Hupilytics extends Module
      */
     public function getContent()
     {
-        $output = '';
-        /**
-         * If values have been submitted in the form, process.
-         */
-        if (((bool)Tools::isSubmit('submitHupilyticsModule')) == true) {
-            $this->postProcess();
+        
+        if(Tools::getValue('ajax')) {
+            $this->dispatchAjax();
         }
+        else {
+            $output = '';
+            /**
+             * If values have been submitted in the form, process.
+             */
+            if (((bool)Tools::isSubmit('submitHupilyticsModule')) == true) {
+                $this->postProcess();
+            }
+    
+            if (version_compare(_PS_VERSION_, '1.5', '>='))
+                $output .= $this->renderForm();
+            else
+            {
+                $this->context->smarty->assign(array(
+                    'account_id' => Configuration::get('HUPI_ACCOUNT_ID'),
+                    'site_id' => Configuration::get('HUPI_ACCOUNT_ID'),
+                    'userid_enabled' => Configuration::get('HUPI_USERID_ENABLED'),
+                ));
+                $output .= $this->display(__FILE__, 'views/templates/admin/form-ps14.tpl');
+            }
 
-        if (version_compare(_PS_VERSION_, '1.5', '>='))
-            $output .= $this->renderForm();
-        else
-        {
+            if($messageErrorFile = $this->testModificationsFiles()) {
+                $this->context->smarty->assign('errorFile', $messageErrorFile);
+            }
+            
+            $token = Configuration::get('HUPIRECO_TOKEN');
+            $active_recommendation = Configuration::get('HUPIRECO_ACTIVE');
+            
+            $product_page = array(
+                'active' => Configuration::get('HUPIRECO_PROD_ACTIVE'),
+                'end_point' => Configuration::get('HUPIRECO_PROD_ENDPOINT'),
+                'nb_products' => Configuration::get('HUPIRECO_PROD_NB'),
+            );
+            $shopping_cart = array(
+                'active' => Configuration::get('HUPIRECO_CART_ACTIVE'),
+                'end_point' => Configuration::get('HUPIRECO_CART_ENDPOINT'),
+                'nb_products' => Configuration::get('HUPIRECO_CART_NB'),
+            );
+            $category = array(
+                'active' => Configuration::get('HUPIRECO_CATEGORY_ACTIVE'),
+                'end_point' => Configuration::get('HUPIRECO_CATEGORY_ENDPOINT'),
+                'nb_products' => Configuration::get('HUPIRECO_CATEGORY_NB'),
+            );
+            $homepage = array(
+                'active' => Configuration::get('HUPIRECO_HP_ACTIVE'),
+                'end_point' => Configuration::get('HUPIRECO_HP_ENDPOINT'),
+                'nb_products' => Configuration::get('HUPIRECO_HP_NB'),
+            );
+            if (Tools::isSubmit('updateConfig')) {
+                $token = Tools::getValue('hupireco_token');
+                $active_recommendation = Tools::getValue('active_recommendation');
+                
+                Configuration::updateValue('HUPIRECO_TOKEN', $token);
+                Configuration::updateValue('HUPIRECO_ACTIVE', $active_recommendation);
+            
+                if($product_page = Tools::getValue('product_page')) {
+                    Configuration::updateValue('HUPIRECO_PROD_ACTIVE', $product_page['active']);
+                    Configuration::updateValue('HUPIRECO_PROD_ENDPOINT', $product_page['end_point']);
+                    Configuration::updateValue('HUPIRECO_PROD_NB', $product_page['nb_products']);
+                }
+                if($shopping_cart = Tools::getValue('shopping_cart')) {
+                    Configuration::updateValue('HUPIRECO_CART_ACTIVE', $shopping_cart['active']);
+                    Configuration::updateValue('HUPIRECO_CART_ENDPOINT', $shopping_cart['end_point']);
+                    Configuration::updateValue('HUPIRECO_CART_NB', $shopping_cart['nb_products']);
+                }
+                if($category = Tools::getValue('category')) {
+                    Configuration::updateValue('HUPIRECO_CATEGORY_ACTIVE', $category['active']);
+                    Configuration::updateValue('HUPIRECO_CATEGORY_ENDPOINT', $category['end_point']);
+                    Configuration::updateValue('HUPIRECO_CATEGORY_NB', $category['nb_products']);
+                }
+                if($homepage = Tools::getValue('homepage')) {
+                    Configuration::updateValue('HUPIRECO_HP_ACTIVE', $homepage['active']);
+                    Configuration::updateValue('HUPIRECO_HP_ENDPOINT', $homepage['end_point']);
+                    Configuration::updateValue('HUPIRECO_HP_NB', $homepage['nb_products']);
+                }
+            }
+            
+            $this->context->controller->addCSS($this->_path.'views/css/hupirecommend.css');
             $this->context->smarty->assign(array(
-                'account_id' => Configuration::get('HUPI_ACCOUNT_ID'),
-                'site_id' => Configuration::get('HUPI_ACCOUNT_ID'),
-                'userid_enabled' => Configuration::get('HUPI_USERID_ENABLED'),
+                'module_dir' => $this->_path,
+                'active_recommendation' => $active_recommendation,
+                'hupireco_token' => $token,
+                'product_page' => $product_page,
+                'shopping_cart' => $shopping_cart,
+                'category' => $category,
+                'homepage' => $homepage,
             ));
-            $output .= $this->display(__FILE__, 'views/templates/admin/form-ps14.tpl');
+            return $output.$this->context->smarty->fetch($this->local_path.'views/templates/admin/configure.tpl');
+            
         }
-//         $this->context->smarty->assign('module_dir', $this->_path);
-
-//         $output = $this->context->smarty->fetch($this->local_path.'views/templates/admin/configure.tpl');
-
-        return $output;
     }
 
     /**
@@ -216,16 +370,81 @@ class Hupilytics extends Module
             Configuration::updateValue($key, Tools::getValue($key));
         }
     }
-
-    /**
-    * Add the CSS & JavaScript files you want to be loaded in the BO.
-    */
-    public function hookBackOfficeHeader()
-    {
-        if (Tools::getValue('module_name') == $this->name) {
-            $this->context->controller->addJS($this->_path.'views/js/back.js');
-            $this->context->controller->addCSS($this->_path.'views/css/back.css');
+    
+    protected function getProducts($endpoint, $nbProducts = 4, $product = null) {
+        $id_lang = $this->context->language->id;
+    
+        if($this->context->cookie->__get('pk_id') && Configuration::get('HUPIRECO_TOKEN')) {
+            $arrayPkId = explode('.', $this->context->cookie->__get('pk_id'));
+            $visitor_id = array_shift($arrayPkId);
+            $filters = array("visitor_id" => $visitor_id);
+            if($product) {
+                $filters['id_demande'] = $product;
+            }
+            if($products = $this->context->cart->getProducts(true)) {
+                $productList = array();
+                foreach ($products as $product) {
+                    $productList[] = (int)$product['id_product'];
+                }
+                if($productList) {
+                    $filters['basket'] = json_encode($productList);
+                }
+            }
+    
+            $data = array("client" => Configuration::get('HUPI_ACCOUNT_ID'), "render_type" => "cursor", "filters" => json_encode($filters));
+            $data_string = json_encode($data);
+    
+            $ch = curl_init("https://api.dataretriever.hupi.io/private/".Configuration::get('HUPI_ACCOUNT_ID')."/".$endpoint);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Content-Type: application/json',
+                'Accept-Version: v1',
+                'X-API-Token: '.Configuration::get('HUPIRECO_TOKEN'),
+                'Content-Length: ' . strlen($data_string)
+            ));
+             
+            $result = curl_exec($ch);
+            curl_close($ch);
+    
+            $jsonArray = json_decode($result, true);
+            if($jsonArray['data'] && count($jsonArray['data'])) {
+                if(key(current($jsonArray['data'])) == 'idRs') {
+                    $idProducts = current(array_values(array_map('current',$jsonArray['data'])));
+    
+                }
+                else {
+                    $idProducts = array_values(array_map('current',$jsonArray['data']));
+                }
+    
+                $sql = 'SELECT p.*, product_shop.*, stock.`out_of_stock` out_of_stock, pl.`description`, pl.`description_short`,
+                            pl.`link_rewrite`, pl.`meta_description`, pl.`meta_keywords`, pl.`meta_title`, pl.`name`,
+                            p.`ean13`, p.`upc`, MAX(image_shop.`id_image`) id_image, il.`legend`
+                        FROM `'._DB_PREFIX_.'product` p
+                        LEFT JOIN `'._DB_PREFIX_.'product_lang` pl ON (
+                            p.`id_product` = pl.`id_product`
+                            AND pl.`id_lang` = '.(int)$id_lang.Shop::addSqlRestrictionOnLang('pl').'
+                        )
+                        '.Shop::addSqlAssociation('product', 'p').'
+                        LEFT JOIN `'._DB_PREFIX_.'image` i ON (i.`id_product` = p.`id_product`)'.
+                            Shop::addSqlAssociation('image', 'i', false, 'image_shop.cover=1').'
+                        LEFT JOIN `'._DB_PREFIX_.'image_lang` il ON (i.`id_image` = il.`id_image` AND il.`id_lang` = '.(int)$id_lang.')
+                        '.Product::sqlStock('p', 0).'
+                        WHERE 1
+                            AND p.`id_product` IN ('.implode(',', $idProducts).')
+                            AND product_shop.`visibility` IN ("both", "catalog")
+                            AND product_shop.`active` = 1
+                        GROUP BY product_shop.id_product
+                        ORDER BY FIELD(p.`id_product`, '.implode(',', $idProducts).')
+                        LIMIT 0, '. (int)$nbProducts;
+    
+                $result = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql);
+                return Product::getProductsProperties($id_lang, $result);
+            }
         }
+    
+        return array();
     }
 
     /**
@@ -235,8 +454,8 @@ class Hupilytics extends Module
     {
         if (Configuration::get('HUPI_ACCOUNT_ID'))
         {
-            $this->context->controller->addJS($this->_path.'views/js/hupilytics.js');
-            $this->context->controller->addJS($this->_path.'views/js/hupilytics-action-lib.js');
+            $this->context->controller->addJS($this->_path.'views/js/hupilytics.js?v='.$this->version);
+            $this->context->controller->addJS($this->_path.'views/js/hupilytics-action-lib.js?v='.$this->version);
 
             return $this->_getHupilyticsTag();
         }
@@ -344,21 +563,43 @@ class Hupilytics extends Module
 	}
     
 	/**
-	 * add product impression js and product click js
-	 */
-	public function addProductImpression($products)
-	{
-	    if (!is_array($products))
-	        return;
-	
+     * add product impression js and product click js
+     */
+    public function addProductRecommendationImpression($products)
+    {
+        if (!is_array($products))
+            return;
+    
         $js = '';
-        foreach ($products as $product)
-            $js .= 'Hupi.add('.Tools::jsonEncode($product).",'',true);";
+        $js .= "console.log('setCustomVariable : products_recommendation => ".implode(',', $products)."');";
+        $js .= 'Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 40, 'cvar_name' => 'products_recommendation', 'cvar_value' => array_values($products), 'scope' => 'page')).');';
+        //$js .= 'Hupi.addProductImpression('.Tools::jsonEncode($product).",'',true);";
 
         return $js;
-	}
-	
-	/**
+    }
+    
+    /**
+     * add product impression js and product click js
+     */
+    public function addProductImpression($products)
+    {
+        if (!is_array($products))
+            return;
+    
+        $js = '';
+        $productsIds = array();
+        foreach ($products as $product) {
+//             $productsIds[] = $product['id'];
+            self::$impressionProducts[] = $product['id'];
+        }
+//         $js .= "console.log('setCustomVariable : products_impression => ".implode(',', $productsIds)."');";
+//         $js .= 'Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 30, 'cvar_name' => 'products_impression', 'cvar_value' => $productsIds, 'scope' => 'page')).');';
+        //$js .= 'Hupi.addProductImpression('.Tools::jsonEncode($product).",'',true);";
+
+        return $js;
+    }
+    
+    /**
 	 * add order transaction
 	 */
 	public function addTransaction($products, $order)
@@ -447,19 +688,29 @@ class Hupilytics extends Module
     /**
      * Generate Google Analytics js
      */
-    protected function _runJs($js_code, $backoffice = 0)
+    public function _runJs($js_code, $backoffice = 0)
     {
         if (Configuration::get('HUPI_ACCOUNT_ID'))
         {
-            $runjs_code = '';
+            $runjs_code = '
+                <script type="text/javascript">
+                    var Hupi = HupilyticsEnhancedECommerce;
+                    Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 1, 'cvar_name' => 'current_ts', 'scope' => 'page')).');
+                    Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 2, 'cvar_name' => 'currency', 'cvar_value' => $this->context->currency->iso_code, 'scope' => 'page')).');
+                ';
+                if(Configuration::get('HUPIRECO_ACTIVE') == '1') {
+            		$products = array_unique(self::$recommendedProducts);
+            		if(count($products)) {
+            		    $runjs_code .= $this->addProductRecommendationImpression($products);
+            		}
+        		}
+    		$runjs_code .= '</script>';
+            
             if (!empty($js_code)) {
                 $runjs_code .= '
-				<script type="text/javascript">
-					var Hupi = HupilyticsEnhancedECommerce;
-					Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 1, 'cvar_name' => 'current_ts', 'scope' => 'page')).');
-					Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 2, 'cvar_name' => 'currency', 'cvar_value' => $this->context->currency->iso_code, 'scope' => 'visit')).');
-					'.$js_code.'
-				</script>';
+                <script type="text/javascript">
+                    '.$js_code.'
+                </script>';
             }
 //				pk_id = null;
 //              _paq.push([ function() { pk_id = this.getVisitorId(); }]);
@@ -591,19 +842,20 @@ class Hupilytics extends Module
 			else
 				$hupicart = array();
 
-			if ($cart['removeAction'] == 'delete')
-				$hupi_products['quantity'] = -1;
-			elseif ($cart['extraAction'] == 'down')
-			{
-				if (array_key_exists($id_product, $hupicart))
+			if ($cart['removeAction'] == 'delete') {
+			    $hupi_products['quantity'] = $cart['qty'] * -1;
+			} elseif ($cart['extraAction'] == 'down') {
+				if (array_key_exists($id_product, $hupicart)) {
 					$hupi_products['quantity'] = $hupicart[$id_product]['quantity'] - $cart['qty'];
-				else
+				} else {
 					$hupi_products['quantity'] = $cart['qty'] * -1;
+				}
 			}
 			elseif (Tools::getValue('step') <= 0) // Sometimes cartsave is called in checkout
 			{
-				if (array_key_exists($id_product, $hupicart))
+				if (array_key_exists($id_product, $hupicart)) {
 					$hupi_products['quantity'] = $hupicart[$id_product]['quantity'] + $cart['qty'];
+				}
 			}
 
 			$hupicart[$id_product] = $hupi_products;
@@ -643,6 +895,19 @@ class Hupilytics extends Module
 		$controller_name = Tools::getValue('controller');
 		$products = $this->wrapProducts($this->context->smarty->getTemplateVars('products'), array(), true);
 
+		if ($controller_name == 'product')
+		{
+		    // Add product view
+		    $product = new Product(Tools::getValue('id_product'), false, Context::getContext()->language->id);
+		    $hupi_product = $this->wrapProduct((array)$product, null, 0, true);
+		    //$hupi_scripts .= 'Hupi.addProductDetailView('.Tools::jsonEncode($hupi_product).');';
+		
+		    if (isset($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'], $_SERVER['HTTP_HOST']) > 0)
+		        $hupi_scripts .= $this->addProductClickByHttpReferal(array($hupi_product));
+		
+		        $this->js_state = 1;
+		}
+		
 		if ($controller_name == 'order' || $controller_name == 'orderopc')
 		{
 			$this->eligible = 1;
@@ -667,71 +932,23 @@ class Hupilytics extends Module
 
 		if (isset($products) && count($products) && $controller_name != 'index')
 		{
-			if ($this->eligible == 0)
+			if ($this->eligible == 0) {
 				$hupi_scripts .= $this->addProductImpression($products);
+			}
 			$hupi_scripts .= $this->addProductClick($products);
+		} 
+		
+		if(count(self::$impressionProducts)) {
+            $hupi_scripts .= "console.log('setCustomVariable : products_impression => ".implode(',', array_unique(self::$impressionProducts))."');";
+            $hupi_scripts .= 'Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 30, 'cvar_name' => 'products_impression', 'cvar_value' => array_values(array_unique(self::$impressionProducts)), 'scope' => 'page')).');';
+		}
+		
+		if(Configuration::get('HUPIRECO_ACTIVE') == '1') {
+    		$hupi_scripts .= 'Hupi.addProductRecommendationClick();';
 		}
 
 		return $this->_runJs($hupi_scripts);
     }
-
-    public function hookDisplayFooterProduct($params)
-    {
-		$controller_name = Tools::getValue('controller');
-		if ($controller_name == 'product')
-		{
-			// Add product view
-			$hupi_product = $this->wrapProduct((array)$params['product'], null, 0, true);
-			$js = 'Hupi.addProductDetailView('.Tools::jsonEncode($hupi_product).');';
-
-			if (isset($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'], $_SERVER['HTTP_HOST']) > 0)
-				$js .= $this->addProductClickByHttpReferal(array($hupi_product));
-
-			$this->js_state = 1;
-			return $this->_runJs($js);
-		}
-
-    }
-    
-    /**
-     * hook home to display generate the product list associated to home featured, news products and best sellers Modules
-     */
-    public function hookHome()
-    {
-        $hupi_scripts = '';
-    
-        // Home featured products
-        if ($this->isModuleEnabled('homefeatured'))
-        {
-            $category = new Category($this->context->shop->getCategory(), $this->context->language->id);
-            $home_featured_products = $this->wrapProducts($category->getProducts((int)Context::getContext()->language->id, 1,
-                (Configuration::get('HOME_FEATURED_NBR') ? (int)Configuration::get('HOME_FEATURED_NBR') : 8), 'position'), array(), true);
-            $hupi_scripts .= $this->addProductImpression($home_featured_products).$this->addProductClick($home_featured_products);
-        }
-    
-        // New products
-        if ($this->isModuleEnabled('blocknewproducts') && (Configuration::get('PS_NB_DAYS_NEW_PRODUCT')
-            || Configuration::get('PS_BLOCK_NEWPRODUCTS_DISPLAY')))
-        {
-            $new_products = Product::getNewProducts((int)$this->context->language->id, 0, (int)Configuration::get('NEW_PRODUCTS_NBR'));
-            $new_products_list = $this->wrapProducts($new_products, array(), true);
-            $hupi_scripts .= $this->addProductImpression($new_products_list).$this->addProductClick($new_products_list);
-        }
-    
-        // Best Sellers
-        if ($this->isModuleEnabled('blockbestsellers') && (!Configuration::get('PS_CATALOG_MODE')
-            || Configuration::get('PS_BLOCK_BESTSELLERS_DISPLAY')))
-        {
-            $hupi_homebestsell_product_list = $this->wrapProducts(ProductSale::getBestSalesLight((int)$this->context->language->id, 0, 8), array(), true);
-            $hupi_scripts .= $this->addProductImpression($hupi_homebestsell_product_list).$this->addProductClick($hupi_homebestsell_product_list);
-        }
-    
-        $this->js_state = 1;
-        
-        return $this->_runJs($this->filter($hupi_scripts));
-    }
-    
-    
 
     public function hookDisplayOrderConfirmation($params)
     {
@@ -765,5 +982,241 @@ class Hupilytics extends Module
 				}
 			}
 		}
+    }
+    
+    public function hookProductTab($params)
+    {
+        if(Configuration::get('HUPIRECO_ACTIVE') != 1 || Configuration::get('HUPIRECO_PROD_ACTIVE') != '1' || !Configuration::get('HUPIRECO_PROD_ENDPOINT')) {
+            return;
+        }
+    
+        $nbProd = (int)Configuration::get('HUPIRECO_PROD_NB');
+        if($nbProd == 0) {
+            $nbProd = null;
+        }
+    
+        $id_product = Tools::getValue('id_product');
+        if($products = $this->getProducts(Configuration::get('HUPIRECO_PROD_ENDPOINT'), $nbProd, $id_product)) {
+            $this->smarty->assign('products', $products);
+    
+            if (version_compare(_PS_VERSION_, '1.6', '>=') && !(bool)Configuration::get('HUPIRECO_PROD_HASTAB')) {
+                return $this->display(__FILE__, 'tab-name.tpl');
+            } else {
+                return $this->display(__FILE__, 'tab-name-1.5.tpl');
+            }
+        }
+    }
+    
+    public function hookProductTabContent($params)
+    {
+        if(Configuration::get('HUPIRECO_ACTIVE') != 1 || Configuration::get('HUPIRECO_PROD_ACTIVE') != '1' || !Configuration::get('HUPIRECO_PROD_ENDPOINT')) {
+            return;
+        }
+        $nbProd = (int)Configuration::get('HUPIRECO_PROD_NB');
+        if($nbProd == 0) {
+            $nbProd = null;
+        }
+    
+        $id_product = Tools::getValue('id_product');
+        if($products = $this->getProducts(Configuration::get('HUPIRECO_PROD_ENDPOINT'), $nbProd, $id_product)) {
+            $this->smarty->assign(array(
+                'products' => $products,
+                'endpoint' => Configuration::get('HUPIRECO_PROD_ENDPOINT')
+            ));
+    
+            foreach ($products as $product) {
+                self::$recommendedProducts[] = $product['id_product'];
+            }
+            if (version_compare(_PS_VERSION_, '1.6', '>=') && !(bool)Configuration::get('HUPIRECO_PROD_HASTAB')) {
+                return $this->display(__FILE__, 'tab-content.tpl');
+            } else {
+                return $this->display(__FILE__, 'tab-content-1.5.tpl');
+            }
+        }
+    }
+    
+    public function hookProductFooter($params)
+    {
+        return $this->hookProductTabContent($params);
+    }
+    
+    
+    public function hookDisplayHomeTab($params)
+    {
+        if(Configuration::get('HUPIRECO_ACTIVE') != 1 || Configuration::get('HUPIRECO_HP_ACTIVE') != '1' || !Configuration::get('HUPIRECO_HP_ENDPOINT')) {
+            return;
+        }
+    
+        $nbProd = (int)Configuration::get('HUPIRECO_HP_NB');
+        if($nbProd == 0) {
+            $nbProd = null;
+        }
+    
+        if($products = $this->getProducts(Configuration::get('HUPIRECO_HP_ENDPOINT'), $nbProd)) {
+            $this->smarty->assign('products', $products);
+    
+            return $this->display(__FILE__, 'home-tab-name.tpl');
+        }
+    }
+    
+    public function hookDisplayHome($params)
+    {
+        $hupi_scripts = '';
+        
+        // Home featured products
+        if ($this->isModuleEnabled('homefeatured'))
+        {
+            $category = new Category($this->context->shop->getCategory(), $this->context->language->id);
+            $home_featured_products = $this->wrapProducts($category->getProducts((int)Context::getContext()->language->id, 1,
+                (Configuration::get('HOME_FEATURED_NBR') ? (int)Configuration::get('HOME_FEATURED_NBR') : 8), 'position'), array(), true);
+            $hupi_scripts .= $this->addProductImpression($home_featured_products).$this->addProductClick($home_featured_products);
+        }
+        
+        // New products
+        if ($this->isModuleEnabled('blocknewproducts') && (Configuration::get('PS_NB_DAYS_NEW_PRODUCT')
+            || Configuration::get('PS_BLOCK_NEWPRODUCTS_DISPLAY')))
+        {
+            $new_products = Product::getNewProducts((int)$this->context->language->id, 0, (int)Configuration::get('NEW_PRODUCTS_NBR'));
+            $new_products_list = $this->wrapProducts($new_products, array(), true);
+            $hupi_scripts .= $this->addProductImpression($new_products_list).$this->addProductClick($new_products_list);
+        }
+        
+        // Best Sellers
+        if ($this->isModuleEnabled('blockbestsellers') && (!Configuration::get('PS_CATALOG_MODE')
+            || Configuration::get('PS_BLOCK_BESTSELLERS_DISPLAY')))
+        {
+            $hupi_homebestsell_product_list = $this->wrapProducts(ProductSale::getBestSalesLight((int)$this->context->language->id, 0, 8), array(), true);
+            $hupi_scripts .= $this->addProductImpression($hupi_homebestsell_product_list).$this->addProductClick($hupi_homebestsell_product_list);
+        }
+        
+        $this->js_state = 1;
+        
+        $this->_runJs($this->filter($hupi_scripts));
+        
+        
+        if(Configuration::get('HUPIRECO_ACTIVE') != 1 || Configuration::get('HUPIRECO_HP_ACTIVE') != '1' || !Configuration::get('HUPIRECO_HP_ENDPOINT')) {
+            return;
+        }
+        $nbProd = (int)Configuration::get('HUPIRECO_HP_NB');
+        if($nbProd == 0) {
+            $nbProd = null;
+        }
+    
+        if($products = $this->getProducts(Configuration::get('HUPIRECO_HP_ENDPOINT'), $nbProd)) {
+            $this->smarty->assign(array(
+                'products' => $products,
+                'endpoint' => Configuration::get('HUPIRECO_HP_ENDPOINT')
+            ));
+    
+            foreach ($products as $product) {
+                self::$recommendedProducts[] = $product['id_product'];
+            }
+            return $this->display(__FILE__, 'home-tab-content.tpl');
+        }
+    }
+    
+    public function hookDisplayHomeTabContent($params)
+    {
+        return $this->hookDisplayHome($params);
+    }
+    
+    public function hookdisplayHupiRecommendations($params)
+    {
+        if(Configuration::get('HUPIRECO_ACTIVE') != 1) {
+            return;
+        }
+        
+        if(isset($params['productId']) && $params['productId']) {
+            $id_product = $params['productId'];
+        } else {
+            return ;
+        }
+    
+        if(isset($params['nbItems']) && $params['nbItems']) {
+            $nbProd = (int)$params['nbItems'];
+        } else {
+            $nbProd = (int)Configuration::get('HUPIRECO_PROD_NB');
+        }
+        if($nbProd == 0) {
+            $nbProd = null;
+        }
+    
+        if($products = $this->getProducts(Configuration::get('HUPIRECO_PROD_ENDPOINT'), $nbProd, $id_product)) {
+            $this->smarty->assign(array(
+                'products' => $products,
+                'endpoint' => Configuration::get('HUPIRECO_PROD_ENDPOINT')
+            ));
+    
+            foreach ($products as $product) {
+                self::$recommendedProducts[] = $product['id_product'];
+            }
+            return $this->display(__FILE__, 'display-recommendation.tpl');
+        }
+        return ;
+    }
+    
+    public function hookDisplayShoppingCart($params)
+    {
+        if(Configuration::get('HUPIRECO_ACTIVE') != 1 || Configuration::get('HUPIRECO_CART_ACTIVE') != '1' || !Configuration::get('HUPIRECO_CART_ENDPOINT')) {
+            return;
+        }
+    
+        $nbProd = (int)Configuration::get('HUPIRECO_CART_NB');
+        if($nbProd == 0) {
+            $nbProd = null;
+        }
+    
+    
+        if($products = $this->getProducts(Configuration::get('HUPIRECO_CART_ENDPOINT'), $nbProd)) {
+            $this->context->controller->addCss(_THEME_CSS_DIR_.'product_list.css', 'all');
+            $this->smarty->assign(array(
+                'products' => $products,
+                'endpoint' => Configuration::get('HUPIRECO_CART_ENDPOINT')
+            ));
+    
+            foreach ($products as $product) {
+                self::$recommendedProducts[] = $product['id_product'];
+            }
+            return $this->display(__FILE__, 'shopping-cart.tpl');
+        }
+    
+    }
+    
+    
+    
+    public function hookLeftColumn($params)
+    {
+        $controller = $this->context->controller->php_self;
+        if(!$controller) {
+            $controller = isset($this->context->controller->page_name) ? $this->context->controller->page_name : null;
+        }
+        
+        if ($id_category = Tools::getValue('id_category') && $controller == 'category') {
+            if(Configuration::get('HUPIRECO_ACTIVE') != 1 || Configuration::get('HUPIRECO_CATEGORY_ACTIVE') != '1' || !Configuration::get('HUPIRECO_CATEGORY_ENDPOINT')) {
+                return;
+            }
+            
+            $nbProd = (int)Configuration::get('HUPIRECO_CATEGORY_NB');
+            if($nbProd == 0) {
+                $nbProd = null;
+            }
+            
+            if($products = $this->getProducts(Configuration::get('HUPIRECO_CATEGORY_ENDPOINT'), $nbProd)) {
+                $this->context->controller->addCss(_THEME_CSS_DIR_.'product_list.css', 'all');
+                $this->smarty->assign(array(
+                    'products' => $products,
+                    'endpoint' => Configuration::get('HUPIRECO_CATEGORY_ENDPOINT')
+                ));
+                
+                foreach ($products as $product) {
+                    self::$recommendedProducts[] = $product['id_product'];
+                }
+                return $this->display(__FILE__, 'category.tpl');
+            }
+        }
+    }
+    
+    public function hookRightColumn($params) {
+        return $this->hookLeftColumn($params);
     }
 }

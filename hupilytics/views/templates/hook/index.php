@@ -1,11 +1,11 @@
 <?php
 /**
  *   2009-2016 ohmyweb!
- *
- *   @author    ohmyweb <contact@ohmyweb.fr>
- *   @copyright 2009-2016 ohmyweb!
- *   @license   Proprietary - no redistribution without authorization
+ * 
+ *   @author ohmyweb <contact@ohmyweb.fr>
+ *   @copyright  2009-2016 ohmyweb!
  */
+
 
 header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
 header('Last-Modified: '.gmdate('D, d M Y H:i:s').' GMT');
