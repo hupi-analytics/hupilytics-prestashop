@@ -382,7 +382,7 @@ class Hupilytics extends Module
                 $filters['id_demande'] = $extraParams['id_product'];
             }
             if(isset($extraParams['id_category'])) {
-                $filters['id_category'] = $extraParams['id_category'];
+                $filters['category_id'] = $extraParams['id_category'];
             }
             if($products = $this->context->cart->getProducts(true)) {
                 $productList = array();
