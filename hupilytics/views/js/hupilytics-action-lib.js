@@ -87,18 +87,16 @@ var HupilyticsEnhancedECommerce = {
         
         addToCart: function(Product) {
             this.add(Product);
-//            ga('ec:setAction', 'add');
-//            ga('send', 'event', 'UX', 'click', 'Add to Cart'); // Send data using an event.
-            console.log('trackEvent => UX : Add to Cart');
-            _paq.push(['trackEvent', 'Add to Cart', 'UX']);
+
+            console.log('trackEvent => UX : Add to Cart : '+Product.quantity+'x'+Product.id);
+            _paq.push(['trackEvent', 'Add to Cart', Product.id, Product.quantity]);
         },
 
         removeFromCart: function(Product) {
             this.add(Product);
-//            ga('ec:setAction', 'remove');
-//            ga('send', 'event', 'UX', 'click', 'Remove From cart'); // Send data using an event.
-            console.log('trackEvent => UX : Remove From cart');
-            _paq.push(['trackEvent', 'Remove From cart', 'UX']);
+
+            console.log('trackEvent => UX : Remove From cart : '+Product.quantity+'x'+Product.id);
+            _paq.push(['trackEvent', 'Remove From cart', Product.id, Product.quantity]);
         },
 
         addProductImpression: function(Product) {

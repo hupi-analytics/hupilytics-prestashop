@@ -98,6 +98,34 @@
             
             <div class="row">
                 <div class="col-lg-12">
+                    <h4>Affichage sur les pages catégories ?</h4>
+                    <div class="row form-inline">
+                        <div class="col-xs-12 col-lg-8">
+                            <span class="switch prestashop-switch fixed-width-lg pull-left">
+                                <input name="category[active]" id="category_on" value="1"{if $category.active} checked="checked"{/if} type="radio">
+                                <label for="category_on">Activé</label>
+                                <input name="category[active]" id="category_off" value="0"{if !$category.active} checked="checked"{/if} type="radio">
+                                <label for="category_off">Désactivé</label> 
+                                <a class="slide-button btn"></a>
+                            </span>
+                            <span class="m-r-l">
+                                <label>End Point : <input type="text" name="category[end_point]" class="form-control" value="{$category.end_point}" /></label>
+                            </span>
+                            <span>
+                                <label>Nombre de produits : <input type="text" name="category[nb_products]" class="form-control fixed-width-sm" value="{$category.nb_products}" /></label>
+                            </span>
+                        </div>
+                    </div>
+                    <!-- /input-group -->
+                </div>
+                <!-- /.col-lg-6 -->
+            </div>
+            <!-- /.row -->
+
+            <hr />
+            
+            <div class="row">
+                <div class="col-lg-12">
                     <h4>Affichage sur la page d'accueil ?</h4>
                     <div class="row form-inline">
                         <div class="col-xs-12 col-lg-8">

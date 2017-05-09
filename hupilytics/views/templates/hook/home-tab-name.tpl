@@ -8,5 +8,5 @@
 
 
 {if count($products)}
-<li><a data-toggle="tab" href="#hupirecommend" class="hupirecommend">{l s='We recommend' mod='hupirecommend'}</a></li>
+<li><a data-toggle="tab" href="#hupirecommend" class="hupirecommend">{l s='We recommend' mod='hupilytics'}</a></li>
 {/if}

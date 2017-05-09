@@ -28,7 +28,7 @@ class Hupilytics extends Module
     {
         $this->name = 'hupilytics';
         $this->tab = 'analytics_stats';
-        $this->version = '1.0.7';
+        $this->version = '1.0.8';
         $this->author = 'Hupi';
         $this->need_instance = 0;
 
@@ -72,6 +72,8 @@ class Hupilytics extends Module
             $this->registerHook('displayHomeTabContent') &&
             $this->registerHook('productTab') &&
             $this->registerHook('productTabContent') &&
+            $this->registerHook('leftColumn') &&
+            $this->registerHook('rightColumn') &&
             $this->registerHook('displayShoppingCart') &&
             $this->registerHook('displayHupiRecommendations')
         ;
@@ -205,6 +207,11 @@ class Hupilytics extends Module
                 'end_point' => Configuration::get('HUPIRECO_CART_ENDPOINT'),
                 'nb_products' => Configuration::get('HUPIRECO_CART_NB'),
             );
+            $category = array(
+                'active' => Configuration::get('HUPIRECO_CATEGORY_ACTIVE'),
+                'end_point' => Configuration::get('HUPIRECO_CATEGORY_ENDPOINT'),
+                'nb_products' => Configuration::get('HUPIRECO_CATEGORY_NB'),
+            );
             $homepage = array(
                 'active' => Configuration::get('HUPIRECO_HP_ACTIVE'),
                 'end_point' => Configuration::get('HUPIRECO_HP_ENDPOINT'),
@@ -227,6 +234,11 @@ class Hupilytics extends Module
                     Configuration::updateValue('HUPIRECO_CART_ENDPOINT', $shopping_cart['end_point']);
                     Configuration::updateValue('HUPIRECO_CART_NB', $shopping_cart['nb_products']);
                 }
+                if($category = Tools::getValue('category')) {
+                    Configuration::updateValue('HUPIRECO_CATEGORY_ACTIVE', $category['active']);
+                    Configuration::updateValue('HUPIRECO_CATEGORY_ENDPOINT', $category['end_point']);
+                    Configuration::updateValue('HUPIRECO_CATEGORY_NB', $category['nb_products']);
+                }
                 if($homepage = Tools::getValue('homepage')) {
                     Configuration::updateValue('HUPIRECO_HP_ACTIVE', $homepage['active']);
                     Configuration::updateValue('HUPIRECO_HP_ENDPOINT', $homepage['end_point']);
@@ -241,6 +253,7 @@ class Hupilytics extends Module
                 'hupireco_token' => $token,
                 'product_page' => $product_page,
                 'shopping_cart' => $shopping_cart,
+                'category' => $category,
                 'homepage' => $homepage,
             ));
             return $output.$this->context->smarty->fetch($this->local_path.'views/templates/admin/configure.tpl');
@@ -441,8 +454,8 @@ class Hupilytics extends Module
     {
         if (Configuration::get('HUPI_ACCOUNT_ID'))
         {
-            $this->context->controller->addJS($this->_path.'views/js/hupilytics.js');
-            $this->context->controller->addJS($this->_path.'views/js/hupilytics-action-lib.js');
+            $this->context->controller->addJS($this->_path.'views/js/hupilytics.js?v='.$this->version);
+            $this->context->controller->addJS($this->_path.'views/js/hupilytics-action-lib.js?v='.$this->version);
 
             return $this->_getHupilyticsTag();
         }
@@ -829,19 +842,20 @@ class Hupilytics extends Module
 			else
 				$hupicart = array();
 
-			if ($cart['removeAction'] == 'delete')
-				$hupi_products['quantity'] = -1;
-			elseif ($cart['extraAction'] == 'down')
-			{
-				if (array_key_exists($id_product, $hupicart))
+			if ($cart['removeAction'] == 'delete') {
+			    $hupi_products['quantity'] = $cart['qty'] * -1;
+			} elseif ($cart['extraAction'] == 'down') {
+				if (array_key_exists($id_product, $hupicart)) {
 					$hupi_products['quantity'] = $hupicart[$id_product]['quantity'] - $cart['qty'];
-				else
+				} else {
 					$hupi_products['quantity'] = $cart['qty'] * -1;
+				}
 			}
 			elseif (Tools::getValue('step') <= 0) // Sometimes cartsave is called in checkout
 			{
-				if (array_key_exists($id_product, $hupicart))
+				if (array_key_exists($id_product, $hupicart)) {
 					$hupi_products['quantity'] = $hupicart[$id_product]['quantity'] + $cart['qty'];
+				}
 			}
 
 			$hupicart[$id_product] = $hupi_products;
@@ -886,7 +900,7 @@ class Hupilytics extends Module
 		    // Add product view
 		    $product = new Product(Tools::getValue('id_product'), false, Context::getContext()->language->id);
 		    $hupi_product = $this->wrapProduct((array)$product, null, 0, true);
-		    $hupi_scripts .= 'Hupi.addProductDetailView('.Tools::jsonEncode($hupi_product).');';
+		    //$hupi_scripts .= 'Hupi.addProductDetailView('.Tools::jsonEncode($hupi_product).');';
 		
 		    if (isset($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'], $_SERVER['HTTP_HOST']) > 0)
 		        $hupi_scripts .= $this->addProductClickByHttpReferal(array($hupi_product));
@@ -1166,5 +1180,43 @@ class Hupilytics extends Module
             return $this->display(__FILE__, 'shopping-cart.tpl');
         }
     
+    }
+    
+    
+    
+    public function hookLeftColumn($params)
+    {
+        $controller = $this->context->controller->php_self;
+        if(!$controller) {
+            $controller = isset($this->context->controller->page_name) ? $this->context->controller->page_name : null;
+        }
+        
+        if ($id_category = Tools::getValue('id_category') && $controller == 'category') {
+            if(Configuration::get('HUPIRECO_ACTIVE') != 1 || Configuration::get('HUPIRECO_CATEGORY_ACTIVE') != '1' || !Configuration::get('HUPIRECO_CATEGORY_ENDPOINT')) {
+                return;
+            }
+            
+            $nbProd = (int)Configuration::get('HUPIRECO_CATEGORY_NB');
+            if($nbProd == 0) {
+                $nbProd = null;
+            }
+            
+            if($products = $this->getProducts(Configuration::get('HUPIRECO_CATEGORY_ENDPOINT'), $nbProd)) {
+                $this->context->controller->addCss(_THEME_CSS_DIR_.'product_list.css', 'all');
+                $this->smarty->assign(array(
+                    'products' => $products,
+                    'endpoint' => Configuration::get('HUPIRECO_CATEGORY_ENDPOINT')
+                ));
+                
+                foreach ($products as $product) {
+                    self::$recommendedProducts[] = $product['id_product'];
+                }
+                return $this->display(__FILE__, 'category.tpl');
+            }
+        }
+    }
+    
+    public function hookRightColumn($params) {
+        return $this->hookLeftColumn($params);
     }
 }
