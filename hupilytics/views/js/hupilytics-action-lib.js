@@ -81,8 +81,8 @@ var HupilyticsEnhancedECommerce = {
             /*_paq.push([setEcommerceView, ]);
             ga('ec:setAction', 'detail');
             ga('send', 'event', 'UX', 'detail', 'Product Detail View',{'nonInteraction': 1});*/
-            console.log('trackEvent => UX : Product Detail View');
-            _paq.push(['trackEvent', 'Product Detail View', 'UX']);
+            /*console.log('trackEvent => UX : Product Detail View');
+            _paq.push(['trackEvent', 'Product Detail View', 'UX']);*/
         },
         
         addToCart: function(Product) {

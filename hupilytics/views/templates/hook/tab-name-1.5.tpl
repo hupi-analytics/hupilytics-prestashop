@@ -7,6 +7,4 @@
 *}
 
 
-{if count($products)}
 <li><a href="#idTabHupi">{l s='We recommend' mod='hupilytics'}</a></li>
-{/if}
