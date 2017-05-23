@@ -28,7 +28,7 @@ class Hupilytics extends Module
     {
         $this->name = 'hupilytics';
         $this->tab = 'analytics_stats';
-        $this->version = '1.0.8';
+        $this->version = '1.0.9';
         $this->author = 'Hupi';
         $this->need_instance = 0;
 
@@ -382,8 +382,10 @@ class Hupilytics extends Module
                 $filters['id_demande'] = $extraParams['id_product'];
             }
             if(isset($extraParams['id_category'])) {
-                $filters['category_id'] = $extraParams['id_category'];
+                $filters['id_category'] = $extraParams['id_category'];
             }
+
+            //var_dump($filters);
             if($products = $this->context->cart->getProducts(true)) {
                 $productList = array();
                 foreach ($products as $product) {
@@ -409,9 +411,15 @@ class Hupilytics extends Module
             ));
              
             $result = curl_exec($ch);
+            //ddd($result);die;
             curl_close($ch);
     
             $jsonArray = json_decode($result, true);
+
+            if(isset($jsonArray['error'])) {
+                return; 
+            }
+
             if($jsonArray['data'] && count($jsonArray['data'])) {
                 if(key(current($jsonArray['data'])) == 'idRs') {
                     $idProducts = current(array_values(array_map('current',$jsonArray['data'])));
@@ -903,7 +911,7 @@ class Hupilytics extends Module
 		    // Add product view
 		    $product = new Product(Tools::getValue('id_product'), false, Context::getContext()->language->id);
 		    $hupi_product = $this->wrapProduct((array)$product, null, 0, true);
-		    //$hupi_scripts .= 'Hupi.addProductDetailView('.Tools::jsonEncode($hupi_product).');';
+		    $hupi_scripts .= 'Hupi.addProductDetailView('.Tools::jsonEncode($hupi_product).');';
 		
 		    if (isset($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'], $_SERVER['HTTP_HOST']) > 0)
 		        $hupi_scripts .= $this->addProductClickByHttpReferal(array($hupi_product));
@@ -992,21 +1000,11 @@ class Hupilytics extends Module
         if(Configuration::get('HUPIRECO_ACTIVE') != 1 || Configuration::get('HUPIRECO_PROD_ACTIVE') != '1' || !Configuration::get('HUPIRECO_PROD_ENDPOINT')) {
             return;
         }
-    
-        $nbProd = (int)Configuration::get('HUPIRECO_PROD_NB');
-        if($nbProd == 0) {
-            $nbProd = null;
-        }
-    
-        $id_product = Tools::getValue('id_product');
-        if($products = $this->getProducts(Configuration::get('HUPIRECO_PROD_ENDPOINT'), $nbProd, array('id_product' => $id_product))) {
-            $this->smarty->assign('products', $products);
-    
-            if (version_compare(_PS_VERSION_, '1.6', '>=') && !(bool)Configuration::get('HUPIRECO_PROD_HASTAB')) {
-                return $this->display(__FILE__, 'tab-name.tpl');
-            } else {
-                return $this->display(__FILE__, 'tab-name-1.5.tpl');
-            }
+        
+        if (version_compare(_PS_VERSION_, '1.6', '>=') && !(bool)Configuration::get('HUPIRECO_PROD_HASTAB')) {
+            return $this->display(__FILE__, 'tab-name.tpl');
+        } else {
+            return $this->display(__FILE__, 'tab-name-1.5.tpl');
         }
     }
     
@@ -1050,16 +1048,7 @@ class Hupilytics extends Module
             return;
         }
     
-        $nbProd = (int)Configuration::get('HUPIRECO_HP_NB');
-        if($nbProd == 0) {
-            $nbProd = null;
-        }
-    
-        if($products = $this->getProducts(Configuration::get('HUPIRECO_HP_ENDPOINT'), $nbProd)) {
-            $this->smarty->assign('products', $products);
-    
-            return $this->display(__FILE__, 'home-tab-name.tpl');
-        }
+        return $this->display(__FILE__, 'home-tab-name.tpl');
     }
     
     public function hookDisplayHome($params)
