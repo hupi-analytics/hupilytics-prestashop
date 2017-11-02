@@ -28,7 +28,7 @@ class Hupilytics extends Module
     {
         $this->name = 'hupilytics';
         $this->tab = 'analytics_stats';
-        $this->version = '1.0.9';
+        $this->version = '1.0.10';
         $this->author = 'Hupi';
         $this->need_instance = 0;
 
@@ -465,8 +465,8 @@ class Hupilytics extends Module
     {
         if (Configuration::get('HUPI_ACCOUNT_ID'))
         {
-            $this->context->controller->addJS($this->_path.'views/js/hupilytics.js?v='.$this->version);
-            $this->context->controller->addJS($this->_path.'views/js/hupilytics-action-lib.js?v='.$this->version);
+            $this->context->controller->addJS($this->_path.'views/js/hupilytics.js'.(version_compare(_PS_VERSION_,'1.6.1.2','>=')?'?v='.$this->version:''));
+            $this->context->controller->addJS($this->_path.'views/js/hupilytics-action-lib.js'.(version_compare(_PS_VERSION_,'1.6.1.2','>=')?'?v='.$this->version:''));
 
             return $this->_getHupilyticsTag();
         }
@@ -707,7 +707,8 @@ class Hupilytics extends Module
                 <script type="text/javascript">
                     var Hupi = HupilyticsEnhancedECommerce;
                     Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 1, 'cvar_name' => 'current_ts', 'scope' => 'page')).');
-                    Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 2, 'cvar_name' => 'currency', 'cvar_value' => $this->context->currency->iso_code, 'scope' => 'page')).');
+                    Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 43, 'cvar_name' => 'currency', 'cvar_value' => $this->context->currency->iso_code, 'scope' => 'page')).');
+                    Hupi.setCustomVariable('.Tools::jsonEncode(array('id' => 42, 'cvar_name' => 'lang', 'cvar_value' => strtoupper($this->context->language->iso_code), 'scope' => 'page')).');
                 ';
                 if(Configuration::get('HUPIRECO_ACTIVE') == '1') {
             		$products = array_unique(self::$recommendedProducts);
