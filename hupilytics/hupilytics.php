@@ -28,7 +28,7 @@ class Hupilytics extends Module
     {
         $this->name = 'hupilytics';
         $this->tab = 'analytics_stats';
-        $this->version = '1.0.10';
+        $this->version = '1.0.11';
         $this->author = 'Hupi';
         $this->need_instance = 0;
 
@@ -836,6 +836,8 @@ class Hupilytics extends Module
 				$add_product['id_category_default'] = $add_product_object->id_category_default;
 				$add_product['out_of_stock'] = $add_product_object->out_of_stock;
 				$add_product = Product::getProductProperties((int)Configuration::get('PS_LANG_DEFAULT'), $add_product);
+
+                $add_product['price'] = $add_product['price_tax_exc'];
 			}
 		}
 
