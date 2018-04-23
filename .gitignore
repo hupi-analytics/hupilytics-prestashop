@@ -1,6 +1,12 @@
-/composer.phar
-*~
-.DS_Store
-composer.lock
+/config_*.xml
+.editorconfig
 
-/.idea
+
+### OSX ###
+.DS_Store
+.AppleDouble
+.LSOverride
+
+
+### PhpStorm ###
+.idea/

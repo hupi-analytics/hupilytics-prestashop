@@ -1123,29 +1123,50 @@ class Hupilytics extends Module
         
         if(isset($params['productId']) && $params['productId']) {
             $id_product = $params['productId'];
-        } else {
-            return ;
-        }
-    
-        if(isset($params['nbItems']) && $params['nbItems']) {
-            $nbProd = (int)$params['nbItems'];
-        } else {
-            $nbProd = (int)Configuration::get('HUPIRECO_PROD_NB');
-        }
-        if($nbProd == 0) {
-            $nbProd = null;
-        }
-    
-        if($products = $this->getProducts(Configuration::get('HUPIRECO_PROD_ENDPOINT'), $nbProd, array('id_product' => $id_product))) {
-            $this->smarty->assign(array(
-                'products' => $products,
-                'endpoint' => Configuration::get('HUPIRECO_PROD_ENDPOINT')
-            ));
-    
-            foreach ($products as $product) {
-                self::$recommendedProducts[] = $product['id_product'];
+
+            if(isset($params['nbItems']) && $params['nbItems']) {
+                $nbProd = (int)$params['nbItems'];
+            } else {
+                $nbProd = (int)Configuration::get('HUPIRECO_PROD_NB');
             }
-            return $this->display(__FILE__, 'display-recommendation.tpl');
+            if($nbProd == 0) {
+                $nbProd = null;
+            }
+            
+            if($products = $this->getProducts(Configuration::get('HUPIRECO_PROD_ENDPOINT'), $nbProd, array('id_product' => $id_product))) {
+                $this->smarty->assign(array(
+                    'products' => $products,
+                    'endpoint' => Configuration::get('HUPIRECO_PROD_ENDPOINT')
+                ));
+        
+                foreach ($products as $product) {
+                    self::$recommendedProducts[] = $product['id_product'];
+                }
+                return $this->display(__FILE__, 'display-recommendation.tpl');
+            }
+        } else {
+            if(isset($params['nbItems']) && $params['nbItems']) {
+                $nbProd = (int)$params['nbItems'];
+            } else {
+                $nbProd = (int)Configuration::get('HUPIRECO_HP_NB');
+            }
+            if($nbProd == 0) {
+                $nbProd = null;
+            }
+
+            if($products = $this->getProducts(Configuration::get('HUPIRECO_HP_ENDPOINT'), $nbProd)) {
+                $this->smarty->assign(array(
+                    'products' => $products,
+                    'endpoint' => Configuration::get('HUPIRECO_HP_ENDPOINT')
+                ));
+        
+                foreach ($products as $product) {
+                    self::$recommendedProducts[] = $product['id_product'];
+                }
+                return $this->display(__FILE__, 'display-recommendation.tpl');
+            }
+
+
         }
         return ;
     }
